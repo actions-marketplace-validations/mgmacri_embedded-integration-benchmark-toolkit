@@ -45,6 +45,11 @@ Run options:
   --duration <sec>   Override per-scenario duration
   --dry-run          Print what would run without executing
 
+Report options:
+  --config <path>    Path to bench.yaml for thresholds
+  --output <path>    Write report to file instead of stdout
+  --gate             Exit non-zero if any verdict exceeds thresholds (CI mode)
+
 Environment:
   BENCH_CONFIG       Path to bench.yaml (default: bench.yaml)
   BENCH_RESULTS      Base results directory (default: results)
@@ -54,6 +59,7 @@ Examples:
   bench run bench.yaml --only wal --duration 30
   bench run                        # uses defaults (no config file needed)
   bench report results/final_20250101_120000/
+  bench report results/ --gate     # fail CI if thresholds exceeded
 `
 
 func main() {
@@ -271,6 +277,7 @@ func cmdReport(args []string) {
 	resultsDir := "results"
 	configPath := ""
 	outputFile := ""
+	gate := false
 
 	for i := 0; i < len(args); i++ {
 		switch {
@@ -282,6 +289,8 @@ func cmdReport(args []string) {
 				i++
 				outputFile = args[i]
 			}
+		case args[i] == "--gate":
+			gate = true
 		case !strings.HasPrefix(args[i], "-"):
 			resultsDir = args[i]
 		default:
@@ -325,6 +334,24 @@ func cmdReport(args []string) {
 
 	if outputFile != "" {
 		fmt.Fprintf(os.Stderr, "[bench] Report written to %s\n", outputFile)
+	}
+
+	// CI gating: exit non-zero if any verdict fails
+	if gate {
+		verdicts := report.Evaluate(data, cfg)
+		code := report.ExitCode(verdicts)
+		if code != 0 {
+			failCount := 0
+			for _, v := range verdicts {
+				if !v.Pass {
+					failCount++
+				}
+			}
+			fmt.Fprintf(os.Stderr, "[bench] GATE FAILED: %d of %d criteria exceeded thresholds\n", failCount, len(verdicts))
+		} else {
+			fmt.Fprintf(os.Stderr, "[bench] GATE PASSED: all %d criteria within thresholds\n", len(verdicts))
+		}
+		os.Exit(code)
 	}
 }
 

@@ -1282,3 +1282,13 @@ func ExitCode(verdicts []Verdict) int {
 	}
 	return 0
 }
+
+// Evaluate computes pass/fail verdicts without generating a report.
+// Use this for CI gating: run Evaluate, check ExitCode(verdicts).
+func Evaluate(data *ReportData, cfg *config.BenchConfig) []Verdict {
+	var verdicts []Verdict
+	verdicts = append(verdicts, evaluateWALVerdicts(data, cfg)...)
+	verdicts = append(verdicts, evaluateEventVerdicts(data, cfg)...)
+	verdicts = append(verdicts, evaluateSustainedVerdicts(data, cfg)...)
+	return verdicts
+}

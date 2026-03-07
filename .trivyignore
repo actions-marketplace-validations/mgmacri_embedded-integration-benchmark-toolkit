@@ -1,0 +1,11 @@
+# .trivyignore — Accepted CVEs for the build container
+#
+# This file lists CVEs that have been reviewed and accepted as low-risk
+# for this build-only container image. The image is never deployed to
+# production — it is used solely for cross-compilation.
+#
+# Review this file periodically. Remove entries when upstream fixes land.
+#
+# Format: one CVE ID per line. Lines starting with # are comments.
+# See: https://aquasecurity.github.io/trivy/latest/docs/configuration/filtering/#by-finding-ids
+

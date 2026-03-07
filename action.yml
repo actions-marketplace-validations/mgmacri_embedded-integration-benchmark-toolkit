@@ -1,0 +1,131 @@
+name: 'IPC Benchmark Gate'
+description: 'Run integration benchmarks and gate on performance thresholds'
+author: 'mgmacri'
+
+branding:
+  icon: 'activity'
+  color: 'blue'
+
+inputs:
+  config:
+    description: 'Path to bench.yaml configuration file'
+    required: false
+    default: 'bench.yaml'
+  results:
+    description: 'Path to results directory (if pre-collected)'
+    required: false
+    default: ''
+  duration:
+    description: 'Seconds per benchmark scenario'
+    required: false
+    default: '30'
+  only:
+    description: 'Run only a specific section: wal, events, sustained'
+    required: false
+    default: ''
+  gate:
+    description: 'Fail the step if any threshold is exceeded'
+    required: false
+    default: 'true'
+  report-output:
+    description: 'Path to write the Markdown report'
+    required: false
+    default: 'BENCHMARK-REPORT.md'
+  target-ip:
+    description: 'IP address of the ARM target device (required for run mode)'
+    required: false
+    default: ''
+
+outputs:
+  report-path:
+    description: 'Path to the generated Markdown report'
+    value: ${{ steps.report.outputs.report-path }}
+  verdict:
+    description: '"pass" or "fail"'
+    value: ${{ steps.report.outputs.verdict }}
+
+runs:
+  using: 'composite'
+  steps:
+    # ── Build the toolkit ──
+    - name: Build benchmark toolkit
+      if: inputs.results == ''
+      shell: bash
+      run: |
+        docker build -t bench-build "${{ github.action_path }}"
+        docker run --rm -v "$PWD":/work bench-build
+
+    # ── Run benchmarks (requires target device) ──
+    - name: Run benchmarks on target
+      if: inputs.results == '' && inputs.target-ip != ''
+      shell: bash
+      run: |
+        echo "::group::Deploy and run"
+        chmod +x deploy.sh
+        ./deploy.sh "${{ inputs.target-ip }}"
+        ssh_cmd="cd /tmp/benchmark && ./run_all.sh ${{ inputs.duration }}"
+        if [ -n "${{ inputs.only }}" ]; then
+          ssh_cmd="cd /tmp/benchmark && ./run_all.sh ${{ inputs.duration }} --only ${{ inputs.only }}"
+        fi
+        ssh root@"${{ inputs.target-ip }}" "$ssh_cmd"
+        echo "::endgroup::"
+
+    # ── Collect results ──
+    - name: Collect results from target
+      if: inputs.results == '' && inputs.target-ip != ''
+      shell: bash
+      run: |
+        chmod +x collect_results.sh
+        ./collect_results.sh "${{ inputs.target-ip }}"
+
+    # ── Generate report and gate ──
+    - name: Generate report
+      id: report
+      shell: bash
+      run: |
+        results_dir="${{ inputs.results }}"
+        if [ -z "$results_dir" ]; then
+          # Find the most recent results directory
+          results_dir=$(ls -td results/*/ 2>/dev/null | head -1)
+          if [ -z "$results_dir" ]; then
+            echo "::error::No results directory found. Provide 'results' input or 'target-ip' for live runs."
+            exit 1
+          fi
+        fi
+
+        gate_flag=""
+        if [ "${{ inputs.gate }}" = "true" ]; then
+          gate_flag="--gate"
+        fi
+
+        config_flag=""
+        if [ -f "${{ inputs.config }}" ]; then
+          config_flag="--config ${{ inputs.config }}"
+        fi
+
+        echo "report-path=${{ inputs.report-output }}" >> "$GITHUB_OUTPUT"
+
+        # Run report generation
+        set +e
+        ./build/bench report "$results_dir" \
+          $config_flag \
+          --output "${{ inputs.report-output }}" \
+          $gate_flag
+        exit_code=$?
+        set -e
+
+        if [ $exit_code -eq 0 ]; then
+          echo "verdict=pass" >> "$GITHUB_OUTPUT"
+        else
+          echo "verdict=fail" >> "$GITHUB_OUTPUT"
+          echo "::warning::Benchmark thresholds exceeded — see ${{ inputs.report-output }}"
+          exit $exit_code
+        fi
+
+    # ── Upload report as artifact ──
+    - name: Upload benchmark report
+      if: always() && steps.report.outputs.report-path != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-report
+        path: ${{ steps.report.outputs.report-path }}

@@ -262,6 +262,10 @@ See [THROUGHPUT-GUIDE.md](THROUGHPUT-GUIDE.md) for throughput-based buckets that
 tell you when inotify stops being deterministic and you need to graduate to
 sockets or shared memory — especially for hot paths that can't be decoupled.
 
+See [CI-INTEGRATION.md](CI-INTEGRATION.md) for using this toolkit as a
+CI pipeline gate — reusable GitHub Action, Docker-based steps, and
+`bench report --gate` for threshold enforcement.
+
 **Quick heuristic:**
 
 | Your Situation | Recommendation |
@@ -282,6 +286,7 @@ sockets or shared memory — especially for hot paths that can't be decoupled.
 ├── ARCHITECTURE.md                Measurement methodology & clock selection rationale
 ├── INTEGRATION-GUIDE.md           Post-benchmark decision framework
 ├── THROUGHPUT-GUIDE.md            When to graduate from inotify (throughput buckets)
+├── CI-INTEGRATION.md             CI pipeline integration (GitHub Action + Docker)
 ├── LICENSE                        MIT
 ├── Dockerfile                     Cross-compilation build environment
 ├── Makefile                       Build system (cross + native targets)
