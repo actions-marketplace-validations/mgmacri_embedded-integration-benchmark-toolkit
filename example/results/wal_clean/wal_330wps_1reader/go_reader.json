@@ -1,0 +1,21 @@
+{
+  "role": "go_reader",
+  "journal_mode": "wal",
+  "busy_timeout_ms": 5000,
+  "num_readers": 1,
+  "interval_ms": 100,
+  "duration_sec": 60,
+  "total_reads": 209,
+  "successful_reads": 209,
+  "sqlite_busy_count": 0,
+  "sqlite_error_count": 0,
+  "rows_returned_total": 12331,
+  "rows_returned_avg": 59,
+  "read_latency_us": {
+    "min": 512,
+    "p50": 1112,
+    "p95": 2241,
+    "p99": 3502,
+    "max": 6912
+  }
+}

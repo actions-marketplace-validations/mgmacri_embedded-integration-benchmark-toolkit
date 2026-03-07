@@ -1,0 +1,32 @@
+{
+  "role": "ipc_socket_server",
+  "total_events": 55201,
+  "total_config_changes": 414012,
+  "dispatch_latency_ns": {
+    "min": 198012,
+    "p50": 312102,
+    "p95": 481012,
+    "p99": 698102,
+    "max": 3812012
+  },
+  "processing_latency_ns": {
+    "min": 14102,
+    "p50": 31012,
+    "p95": 58102,
+    "p99": 68012,
+    "max": 412012
+  },
+  "pipeline_latency_ns": {
+    "min": 218012,
+    "p50": 348102,
+    "p95": 531012,
+    "p99": 761012,
+    "max": 3921012
+  },
+  "avg_payload_bytes": 208,
+  "events_by_subsystem": {
+    "sensor_calibration": 18401,
+    "network_config": 18398,
+    "user_profiles": 18402
+  }
+}

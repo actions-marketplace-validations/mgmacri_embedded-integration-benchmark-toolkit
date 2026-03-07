@@ -1,0 +1,14 @@
+{
+  "role": "ipc_socket_client",
+  "interval_ms": 100,
+  "duration_sec": 60,
+  "total_writes": 598,
+  "subsystems": ["sensor_calibration", "network_config", "user_profiles"],
+  "write_latency_us": {
+    "min": 38,
+    "p50": 62,
+    "p95": 98,
+    "p99": 132,
+    "max": 489
+  }
+}

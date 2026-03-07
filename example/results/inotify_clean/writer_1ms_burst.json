@@ -1,0 +1,14 @@
+{
+  "role": "sentinel_writer",
+  "interval_ms": 1,
+  "duration_sec": 60,
+  "total_writes": 52533,
+  "subsystems": ["sensor_calibration", "network_config", "user_profiles"],
+  "write_latency_us": {
+    "min": 82,
+    "p50": 132,
+    "p95": 198,
+    "p99": 289,
+    "max": 2102
+  }
+}

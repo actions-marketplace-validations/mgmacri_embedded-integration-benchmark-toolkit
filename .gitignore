@@ -21,8 +21,8 @@ third_party/
 *.db-shm
 *.db-journal
 
-# Benchmark runtime artifacts
-results/
+# Benchmark runtime artifacts (top-level only; keep example/results/)
+/results/
 /tmp/
 
 # Generated reports (keep example/ but not live results)
@@ -45,4 +45,4 @@ LINKEDIN-ARTICLE.md
 .github/verification-checklist.md
 
 # Stray binaries (from local builds outside build/)
-writer
+/writer

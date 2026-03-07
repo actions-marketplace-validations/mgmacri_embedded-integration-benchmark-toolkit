@@ -10,7 +10,7 @@
 # Or deploy directly:
 #   docker run --rm -v ${PWD}:/work bench-build make deploy TARGET_IP=192.168.1.100
 
-FROM golang:1.22-bookworm AS builder
+FROM golang:1.25-bookworm AS builder
 
 # ARM cross-compiler (amd64 package that outputs ARM code)
 RUN apt-get update -qq && \

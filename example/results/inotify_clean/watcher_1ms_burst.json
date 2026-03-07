@@ -1,0 +1,34 @@
+{
+  "role": "inotify_watcher",
+  "total_events": 52102,
+  "missed_events": 271,
+  "unknown_events": 0,
+  "total_config_changes": 391208,
+  "dispatch_latency_ns": {
+    "min": 312102,
+    "p50": 618102,
+    "p95": 1812301,
+    "p99": 1991012,
+    "max": 22181012
+  },
+  "processing_latency_ns": {
+    "min": 62102,
+    "p50": 118102,
+    "p95": 178012,
+    "p99": 421102,
+    "max": 8121012
+  },
+  "pipeline_latency_ns": {
+    "min": 381012,
+    "p50": 742102,
+    "p95": 1991208,
+    "p99": 2162102,
+    "max": 22301012
+  },
+  "avg_payload_bytes": 214,
+  "events_by_subsystem": {
+    "sensor_calibration": 17412,
+    "network_config": 17301,
+    "user_profiles": 17389
+  }
+}

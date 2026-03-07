@@ -1,0 +1,18 @@
+{
+  "role": "c_writer",
+  "journal_mode": "wal",
+  "busy_timeout_ms": 5000,
+  "interval_ms": 30,
+  "duration_sec": 60,
+  "total_writes": 1957,
+  "successful_writes": 1957,
+  "sqlite_busy_count": 0,
+  "sqlite_error_count": 0,
+  "write_latency_us": {
+    "min": 198,
+    "p50": 341,
+    "p95": 608,
+    "p99": 871,
+    "max": 1802
+  }
+}

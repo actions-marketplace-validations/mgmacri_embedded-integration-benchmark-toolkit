@@ -1,0 +1,8 @@
+Hardware:    Digi ConnectCore MP157 (STM32MP157 SoC, ARM Cortex-A7)
+Arch:        armv7l
+RAM:         401 MB total
+OS:          Linux 5.15.118-dey (SMP PREEMPT)
+Distro:      Digi Embedded Yocto (Kirkstone)
+Swap:        None
+Filesystem:  eMMC (NAND flash)
+Date:        2026-03-15
