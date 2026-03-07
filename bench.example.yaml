@@ -1,0 +1,269 @@
+# bench.example.yaml — Full benchmark configuration reference
+#
+# This file documents every available setting. For a minimal starting point,
+# see bench.minimal.yaml.
+#
+# Usage:
+#   ./bench run bench.yaml            # run all benchmarks defined below
+#   ./bench run bench.yaml --only wal # run only the WAL section
+#   ./bench report results/           # generate report from collected data
+#   ./bench init                      # generate a starter bench.yaml interactively
+#
+# ─── Schema ──────────────────────────────────────────────────────────────────
+# Point to a .sql file containing CREATE TABLE statements.
+# The orchestrator introspects the schema to auto-generate INSERT/SELECT
+# statements, bind parameters, and deterministic test data.
+#
+# You may also provide explicit SQL templates (see 'queries' below) to override
+# the auto-generated statements.
+
+schema: schema.sql
+
+# ─── Queries (optional) ──────────────────────────────────────────────────────
+# Override auto-generated SQL for the WAL benchmark writer and reader.
+# Use these when your schema has constraints, triggers, or specific access
+# patterns that the auto-generator cannot infer.
+#
+# Placeholders use positional ? for both C (sqlite3_bind) and Go (database/sql).
+# The orchestrator maps columns to RNG-generated test data by type:
+#   INTEGER → deterministic rand (seed 42)
+#   TEXT    → short deterministic strings
+#   REAL    → not used (integers only — see copilot-instructions.md)
+
+queries:
+  insert: |
+    INSERT INTO sample_data
+      (record_id, date, time, target_value_1, target_value_2,
+       result_flag, actual_value_1, actual_value_2,
+       final_value_1, unit_type, duration_ms, operator_name,
+       device_serial, coord_x, coord_y,
+       source_label, category_id, final_value_2, reserved)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+  select: |
+    SELECT record_id, category_id, result_flag, final_value_1,
+           final_value_2, unit_type
+    FROM sample_data WHERE category_id = ?;
+  config_insert: |
+    INSERT INTO config_store (key, value, updated_at)
+    VALUES (?, ?, ?);
+
+# ─── Configs ─────────────────────────────────────────────────────────────────
+# Config domains for the event-dispatch benchmarks (inotify, IPC, SHM).
+# Two modes:
+#   1. Directory mode: point to a directory of example config files.
+#      File names become subsystem names. File contents define the field schema.
+#   2. Inline mode: define subsystems and their fields directly in YAML.
+#
+# You can use either or both. Inline definitions take precedence over files
+# with the same name in the directory.
+
+configs:
+  # Directory containing example config files (one file per subsystem).
+  # Each file has pipe-separated key=value pairs on a single line.
+  # The orchestrator reads field names from these files and generates
+  # deterministic test payloads varying the values.
+  directory: example/inotify_files
+
+  # Inline subsystem definitions. Each subsystem lists its fields with
+  # a type hint and optional range/values for data generation.
+  subsystems:
+    sensor_calibration:
+      fields:
+        - { name: temp_offset, type: int, min: -50, max: 50 }
+        - { name: pressure_gain, type: int, min: 900, max: 1100 }
+        - { name: humidity_bias, type: int, min: -10, max: 10 }
+        - { name: accel_x_cal, type: int, min: -500, max: 500 }
+        - { name: accel_y_cal, type: int, min: -500, max: 500 }
+        - { name: accel_z_cal, type: int, min: -500, max: 500 }
+        - { name: gyro_drift, type: int, min: 0, max: 100 }
+        - { name: mag_declination, type: int, min: -180, max: 180 }
+        - { name: adc_offset, type: int, min: -20, max: 20 }
+        - { name: adc_gain, type: int, min: 950, max: 1050 }
+        - { name: filter_alpha, type: int, min: 1, max: 100 }
+        - { name: sample_rate_hz, type: int, min: 10, max: 1000 }
+        - { name: averaging_window, type: int, min: 1, max: 64 }
+        - { name: noise_floor, type: int, min: 0, max: 50 }
+        - { name: cal_timestamp, type: int, min: 1700000000, max: 1800000000 }
+        - { name: sensor_id, type: text, values: ["SNS-001", "SNS-002", "SNS-003"] }
+        - { name: firmware_ver, type: text, values: ["v2.1.0", "v2.1.1", "v2.2.0"] }
+        - { name: cal_operator, type: text, values: ["auto", "manual", "factory"] }
+        - { name: cal_status, type: text, values: ["valid", "expired", "pending"] }
+        - { name: temp_unit, type: text, values: ["C", "F", "K"] }
+
+    network_config:
+      fields:
+        - { name: ip_addr, type: text, values: ["10.0.1.100", "10.0.1.101", "10.0.1.102"] }
+        - { name: subnet_mask, type: text, values: ["255.255.255.0", "255.255.0.0"] }
+        - { name: gateway, type: text, values: ["10.0.1.1", "10.0.0.1"] }
+        - { name: dns_primary, type: text, values: ["8.8.8.8", "1.1.1.1"] }
+        - { name: dns_secondary, type: text, values: ["8.8.4.4", "1.0.0.1"] }
+        - { name: mtu, type: int, min: 576, max: 9000 }
+        - { name: dhcp_enabled, type: int, min: 0, max: 1 }
+        - { name: vlan_id, type: int, min: 1, max: 4094 }
+        - { name: link_speed, type: int, min: 10, max: 1000 }
+        - { name: hostname, type: text, values: ["device-a", "device-b", "device-c"] }
+
+    user_profiles:
+      fields:
+        - { name: user_id, type: int, min: 1000, max: 9999 }
+        - { name: username, type: text, values: ["admin", "operator", "viewer", "service"] }
+        - { name: role, type: text, values: ["admin", "operator", "readonly"] }
+        - { name: theme, type: text, values: ["dark", "light", "auto"] }
+        - { name: language, type: text, values: ["en", "de", "fr", "ja"] }
+        - { name: timeout_sec, type: int, min: 30, max: 3600 }
+        - { name: max_retries, type: int, min: 1, max: 10 }
+        - { name: log_level, type: text, values: ["debug", "info", "warn", "error"] }
+
+# ─── WAL Benchmark Scenarios ─────────────────────────────────────────────────
+# Each scenario runs one C writer + N Go readers (+ optional Go config writer)
+# against a fresh SQLite database with the specified journal mode.
+
+wal:
+  db_dir: /tmp/wal_benchmark
+  busy_timeout_ms: 5000
+  scenarios:
+    - name: wal_33wps_1reader
+      journal_mode: wal
+      c_write_interval_ms: 30
+      go_readers: 1
+      go_read_interval_ms: 50
+      go_write_interval_ms: 0          # 0 = no Go writer
+
+    - name: wal_100wps_1reader
+      journal_mode: wal
+      c_write_interval_ms: 10
+      go_readers: 1
+      go_read_interval_ms: 50
+
+    - name: wal_330wps_1reader
+      journal_mode: wal
+      c_write_interval_ms: 3
+      go_readers: 1
+      go_read_interval_ms: 50
+
+    - name: wal_33wps_3readers
+      journal_mode: wal
+      c_write_interval_ms: 30
+      go_readers: 3
+      go_read_interval_ms: 50
+
+    - name: rollback_33wps_1reader
+      journal_mode: delete
+      c_write_interval_ms: 30
+      go_readers: 1
+      go_read_interval_ms: 50
+
+    - name: rollback_33wps_3readers
+      journal_mode: delete
+      c_write_interval_ms: 30
+      go_readers: 3
+      go_read_interval_ms: 50
+
+# ─── Event Benchmark Scenarios ──────────────────────────────────────────────
+# These control inotify (sentinel file), IPC (unix socket), and SHM (mmap+FIFO)
+# benchmarks. All three transports run the same scenarios for fair comparison.
+
+events:
+  inotify:
+    watch_dir: /tmp/sentinel_bench
+  ipc:
+    socket_path: /tmp/bench_ipc.sock
+  shm:
+    shm_name: /bench_shm
+    fifo_path: /tmp/bench_shm_fifo
+
+  scenarios:
+    - name: 500ms
+      interval_ms: 500
+    - name: 100ms
+      interval_ms: 100
+    - name: 1ms_burst
+      interval_ms: 1
+
+# ─── Sustained WAL Test ──────────────────────────────────────────────────────
+# Long-running concurrent write test: C writer + Go writer + Go reader.
+# Tests WAL file growth, checkpoint behavior, and sustained contention.
+
+sustained:
+  enabled: true
+  duration_sec: 300                    # capped independently (default: 5 min)
+  journal_mode: wal
+  c_write_interval_ms: 30
+  go_write_interval_ms: 100
+  go_readers: 1
+  go_read_interval_ms: 50
+
+# ─── inotify Reliability Tests ──────────────────────────────────────────────
+# Targeted tests for race conditions and edge cases in the sentinel pattern.
+
+reliability:
+  enabled: true
+  duration_sec: 30
+  tests:
+    - name: no_fsync
+      desc: "Skip fsync before rename — tests write/notify race"
+      no_sync: true
+      interval_ms: 10
+    - name: rapid_overwrite_5
+      desc: "5 rapid overwrites per tick — tests event coalescing"
+      burst_pairs: 5
+      interval_ms: 100
+    - name: rapid_overwrite_20
+      desc: "20 rapid overwrites per tick — extreme coalescing"
+      burst_pairs: 20
+      interval_ms: 100
+    - name: slow_reader
+      desc: "Reader delays 50ms before reading — tests data staleness"
+      delay_start_ms: 50
+      interval_ms: 100
+    - name: mixed_stress
+      desc: "Burst + slow reader — combined worst case"
+      burst_pairs: 10
+      delay_start_ms: 25
+      interval_ms: 50
+
+# ─── Stress Testing ──────────────────────────────────────────────────────────
+# When enabled, all benchmarks above run twice: once clean, once under
+# synthetic system load (CPU busy loops, I/O pressure, memory allocation).
+
+stress:
+  enabled: true
+  cpu_loops: 2                         # sha256sum busy loops
+  io_enabled: true                     # continuous dd from /dev/urandom
+  memory_mb: 100                       # tmpfs allocation in /dev/shm
+
+# ─── Duration ─────────────────────────────────────────────────────────────────
+# Default per-scenario duration. Individual sections can override.
+
+duration_sec: 60
+
+# ─── Thresholds ──────────────────────────────────────────────────────────────
+# Pass/fail criteria for the verdict-first report. The report generator
+# evaluates measured results against these thresholds and emits a clear
+# PASS/FAIL verdict per criterion.
+#
+# Set these based on your system's requirements. The defaults below are
+# conservative starting points.
+
+thresholds:
+  wal:
+    max_busy_pct: 1.0                  # max acceptable SQLITE_BUSY percentage
+    max_p99_write_latency_us: 50000    # 50ms — flag anything above this
+    max_p99_read_latency_us: 10000     # 10ms — reads should be fast in WAL
+
+  events:
+    max_p99_dispatch_latency_us: 5000  # 5ms — config dispatch ceiling
+    max_missed_events_pct: 0.0         # zero tolerance for dropped notifications
+    max_coalesced_pct: 5.0             # coalescing is normal; flag if excessive
+
+  sustained:
+    max_busy_pct: 5.0                  # sustained contention tolerance
+    max_p99_write_latency_us: 100000   # 100ms — long run allows more variance
+
+# ─── Output ──────────────────────────────────────────────────────────────────
+# Controls where results and reports are written.
+
+output:
+  results_dir: results                 # base directory for timestamped results
+  report_format: markdown              # markdown | json (future: html)
+  report_file: BENCHMARK-REPORT.md     # generated report filename

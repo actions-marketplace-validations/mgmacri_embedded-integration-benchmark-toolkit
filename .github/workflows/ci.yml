@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Go tests, vet, and formatting ──────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Go fmt check
+        run: |
+          diff=$(gofmt -d .)
+          if [ -n "$diff" ]; then
+            echo "$diff"
+            echo "::error::gofmt found differences"
+            exit 1
+          fi
+
+      - name: Run tests
+        run: go test ./...
+
+  # ── Native build (x86 — verifies all C and Go code compiles) ──
+  build-native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install build dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc make wget unzip
+
+      - name: Download SQLite amalgamation
+        run: ./setup.sh
+
+      - name: Build (native x86)
+        run: make native
+
+      - name: Verify binaries
+        run: |
+          for bin in c_writer go_reader go_writer inotify_watcher sentinel_writer \
+                     ipc_server ipc_client shm_reader shm_writer generate_report bench sqlite3; do
+            if [ ! -f "build/$bin" ]; then
+              echo "::error::Missing binary: build/$bin"
+              exit 1
+            fi
+          done
+          echo "All 12 binaries present in build/"
+
+  # ── Docker cross-build (ARM — verifies Dockerfile and cross-compilation) ──
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker build
+        run: docker build -t bench-build .
+
+      - name: Cross-compile for ARM
+        run: docker run --rm -v "$PWD":/work bench-build
+
+      - name: Verify ARM binaries
+        run: |
+          for bin in c_writer inotify_watcher ipc_server shm_reader; do
+            file "build/$bin" | grep -q "ARM" || {
+              echo "::error::build/$bin is not an ARM binary"
+              exit 1
+            }
+          done
+          echo "ARM cross-compilation verified"
+
+  # ── Python report generator smoke test ─────────────────────────
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Generate report from example results
+        run: python3 generate_report.py example/results/ > /dev/null
+
+      - name: Verify report output
+        run: |
+          output=$(python3 generate_report.py example/results/)
+          if ! echo "$output" | grep -q "WAL"; then
+            echo "::error::Report missing WAL section"
+            exit 1
+          fi
+          if ! echo "$output" | grep -q "inotify"; then
+            echo "::error::Report missing inotify section"
+            exit 1
+          fi
+          echo "Report generator produces valid output"

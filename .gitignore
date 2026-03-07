@@ -1,0 +1,48 @@
+# Build outputs
+build/
+*.exe
+*.o
+*.a
+
+# Go
+vendor/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# SQLite amalgamation (downloaded at build time)
+third_party/
+
+# SQLite runtime artifacts
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
+# Benchmark runtime artifacts
+results/
+/tmp/
+
+# Generated reports (keep example/ but not live results)
+BENCHMARK-REPORT.md
+
+# Editor / OS
+.vscode/settings.json
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Personal / non-release
+digest.txt
+LINKEDIN-ARTICLE.md
+
+# AI agent / copilot configuration (not part of the toolkit)
+.github/copilot-instructions.md
+.github/skills.md
+.github/verification-checklist.md
+
+# Stray binaries (from local builds outside build/)
+writer

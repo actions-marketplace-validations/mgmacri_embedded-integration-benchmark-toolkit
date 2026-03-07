@@ -1,0 +1,22 @@
+# bench.yaml — Minimal benchmark configuration
+#
+# Just point to your schema and config files. The orchestrator introspects
+# everything else automatically.
+#
+# Usage: ./bench run bench.yaml
+
+schema: schema.sql
+
+configs:
+  directory: example/inotify_files
+
+duration_sec: 60
+
+# Thresholds for pass/fail verdicts (adjust to your requirements)
+thresholds:
+  wal:
+    max_busy_pct: 1.0
+    max_p99_write_latency_us: 50000
+  events:
+    max_p99_dispatch_latency_us: 5000
+    max_missed_events_pct: 0.0
