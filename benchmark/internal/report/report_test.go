@@ -113,8 +113,12 @@ func TestGenerateReport_AllPass(t *testing.T) {
 	cfg.Thresholds.WAL.MaxP99ReadLatencyUs = 50000
 	cfg.Thresholds.Events.MaxP99DispatchLatencyUs = 50000
 	cfg.Thresholds.Events.MaxMissedEventsPct = 10.0
+	cfg.Thresholds.Events.MaxOverflowEvents = 10
+	cfg.Thresholds.Events.MaxCoalescedPct = 50.0
 	cfg.Thresholds.Sustained.MaxBusyPct = 5.0
 	cfg.Thresholds.Sustained.MaxP99WriteLatencyUs = 50000
+	cfg.Thresholds.Sustained.MaxP99ReadLatencyUs = 50000
+	cfg.Thresholds.Sustained.MaxCombinedBusyPct = 50.0
 
 	var buf bytes.Buffer
 	if err := Generate(&buf, data, cfg); err != nil {
@@ -277,8 +281,12 @@ func TestComplexityScorecard_InReport(t *testing.T) {
 	cfg.Thresholds.WAL.MaxP99ReadLatencyUs = 50000
 	cfg.Thresholds.Events.MaxP99DispatchLatencyUs = 50000
 	cfg.Thresholds.Events.MaxMissedEventsPct = 10.0
+	cfg.Thresholds.Events.MaxOverflowEvents = 10
+	cfg.Thresholds.Events.MaxCoalescedPct = 50.0
 	cfg.Thresholds.Sustained.MaxBusyPct = 5.0
 	cfg.Thresholds.Sustained.MaxP99WriteLatencyUs = 50000
+	cfg.Thresholds.Sustained.MaxP99ReadLatencyUs = 50000
+	cfg.Thresholds.Sustained.MaxCombinedBusyPct = 50.0
 
 	var buf bytes.Buffer
 	if err := Generate(&buf, data, cfg); err != nil {

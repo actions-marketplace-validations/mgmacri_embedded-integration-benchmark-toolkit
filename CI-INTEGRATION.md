@@ -82,9 +82,9 @@ docker run --rm -v "$PWD":/work bench-build
 ### 2. Deploy and run (if you have a target device)
 
 ```bash
-./deploy.sh 10.0.0.214
-ssh root@10.0.0.214 "cd /tmp/benchmark && ./run_all.sh 60"
-./collect_results.sh 10.0.0.214
+./deploy.sh 192.168.1.100
+ssh root@192.168.1.100 "cd /tmp/benchmark && ./run_all.sh 60"
+./collect_results.sh 192.168.1.100
 ```
 
 ### 3. Generate report with CI gating
@@ -265,7 +265,7 @@ jobs:
       - uses: mgmacri/ipc-you-might-not-need@v1
         with:
           config: bench.yaml
-          target-ip: 10.0.0.214
+          target-ip: 192.168.1.100
           duration: '120'
           gate: 'false'
 ```

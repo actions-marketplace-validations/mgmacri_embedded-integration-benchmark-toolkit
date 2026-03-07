@@ -255,10 +255,13 @@ thresholds:
     max_p99_dispatch_latency_us: 5000  # 5ms — config dispatch ceiling
     max_missed_events_pct: 0.0         # zero tolerance for dropped notifications
     max_coalesced_pct: 5.0             # coalescing is normal; flag if excessive
+    max_overflow_events: 0             # zero tolerance — IN_Q_OVERFLOW means kernel dropped
 
   sustained:
     max_busy_pct: 5.0                  # sustained contention tolerance
     max_p99_write_latency_us: 100000   # 100ms — long run allows more variance
+    max_p99_read_latency_us: 50000     # 50ms — reader stalls signal checkpoint contention
+    max_combined_busy_pct: 5.0         # aggregate SQLITE_BUSY across all roles
 
 # ─── Output ──────────────────────────────────────────────────────────────────
 # Controls where results and reports are written.

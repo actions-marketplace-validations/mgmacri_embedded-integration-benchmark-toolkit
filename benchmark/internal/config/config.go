@@ -172,12 +172,15 @@ type EventThresholds struct {
 	MaxP99DispatchLatencyUs int     `yaml:"max_p99_dispatch_latency_us"`
 	MaxMissedEventsPct      float64 `yaml:"max_missed_events_pct"`
 	MaxCoalescedPct         float64 `yaml:"max_coalesced_pct"`
+	MaxOverflowEvents       int     `yaml:"max_overflow_events"`
 }
 
 // SustainedThresholds defines sustained test pass/fail criteria.
 type SustainedThresholds struct {
 	MaxBusyPct           float64 `yaml:"max_busy_pct"`
 	MaxP99WriteLatencyUs int     `yaml:"max_p99_write_latency_us"`
+	MaxP99ReadLatencyUs  int     `yaml:"max_p99_read_latency_us"`
+	MaxCombinedBusyPct   float64 `yaml:"max_combined_busy_pct"`
 }
 
 // OutputConfig controls where results and reports are written.
@@ -327,10 +330,13 @@ func Default() *BenchConfig {
 				MaxP99DispatchLatencyUs: 5000,
 				MaxMissedEventsPct:      0.0,
 				MaxCoalescedPct:         5.0,
+				MaxOverflowEvents:       0,
 			},
 			Sustained: SustainedThresholds{
 				MaxBusyPct:           5.0,
 				MaxP99WriteLatencyUs: 100000,
+				MaxP99ReadLatencyUs:  50000,
+				MaxCombinedBusyPct:   5.0,
 			},
 		},
 		Output: OutputConfig{

@@ -38,6 +38,7 @@ Thumbs.db
 # Personal / non-release
 digest.txt
 LINKEDIN-ARTICLE.md
+LINKEDIN-POST.md
 
 # AI agent / copilot configuration (not part of the toolkit)
 .github/copilot-instructions.md

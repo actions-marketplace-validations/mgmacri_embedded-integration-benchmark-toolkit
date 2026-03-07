@@ -267,6 +267,36 @@ func evaluateEventVerdicts(data *ReportData, cfg *config.BenchConfig) []Verdict 
 					Source:    fmt.Sprintf("inotify_clean/watcher_%s.json", scen.Scenario),
 				})
 			}
+
+			// Overflow events (inotify only) — IN_Q_OVERFLOW means kernel dropped notifications
+			if ne.name == "inotify" && th.MaxOverflowEvents >= 0 {
+				overflow := jsonInt(scen.Receiver, "overflow_events")
+				verdicts = append(verdicts, Verdict{
+					Criterion: fmt.Sprintf("inotify %s — overflow events", scen.Scenario),
+					Threshold: fmt.Sprintf("≤ %d", th.MaxOverflowEvents),
+					Measured:  fmt.Sprintf("%s", fmtNum(overflow)),
+					Pass:      overflow <= int64(th.MaxOverflowEvents),
+					Source:    fmt.Sprintf("inotify_clean/watcher_%s.json", scen.Scenario),
+				})
+			}
+
+			// Coalesced events percentage (inotify only) — kernel merged multiple writes
+			if ne.name == "inotify" && th.MaxCoalescedPct > 0 {
+				totalEvents := jsonInt(scen.Receiver, "total_events")
+				coalesced := jsonInt(scen.Receiver, "coalesced_events")
+				var coalescedPct float64
+				if totalEvents > 0 {
+					coalescedPct = float64(coalesced) / float64(totalEvents+coalesced) * 100.0
+				}
+
+				verdicts = append(verdicts, Verdict{
+					Criterion: fmt.Sprintf("inotify %s — coalesced events", scen.Scenario),
+					Threshold: fmt.Sprintf("≤ %.1f%%", th.MaxCoalescedPct),
+					Measured:  fmt.Sprintf("%.2f%%", coalescedPct),
+					Pass:      coalescedPct <= th.MaxCoalescedPct,
+					Source:    fmt.Sprintf("inotify_clean/watcher_%s.json", scen.Scenario),
+				})
+			}
 		}
 	}
 
@@ -307,6 +337,55 @@ func evaluateSustainedVerdicts(data *ReportData, cfg *config.BenchConfig) []Verd
 			Measured:  fmt.Sprintf("%s µs", fmtNum(p99)),
 			Pass:      p99 <= int64(th.MaxP99WriteLatencyUs),
 			Source:    "wal_sustained/c_writer.json",
+		})
+	}
+
+	// Sustained read latency — detects reader stalls from WAL checkpoint contention
+	// under concurrent write pressure. Elevated read p99 is the primary signal that
+	// direct multi-process DB access should be replaced by a concurrency wrapper.
+	if th.MaxP99ReadLatencyUs > 0 && data.WALSustained.GoReader != nil {
+		gr := data.WALSustained.GoReader
+		p99 := jsonLatency(gr, "read_latency_us", "p99")
+		verdicts = append(verdicts, Verdict{
+			Criterion: "Sustained — p99 read",
+			Threshold: fmt.Sprintf("≤ %s µs", fmtNum(int64(th.MaxP99ReadLatencyUs))),
+			Measured:  fmt.Sprintf("%s µs", fmtNum(p99)),
+			Pass:      p99 <= int64(th.MaxP99ReadLatencyUs),
+			Source:    "wal_sustained/go_reader.json",
+		})
+	}
+
+	// Combined busy percentage across all roles — catches cross-process contention
+	// that individual role thresholds miss. When C writer + Go writer + Go reader
+	// collectively see significant SQLITE_BUSY, a serialization wrapper is indicated.
+	if th.MaxCombinedBusyPct > 0 {
+		var totalOps, totalBusy int64
+
+		totalOps += jsonInt(cw, "total_writes")
+		totalBusy += jsonInt(cw, "sqlite_busy_count")
+
+		if data.WALSustained.GoWriter != nil {
+			gw := data.WALSustained.GoWriter
+			totalOps += jsonInt(gw, "total_writes")
+			totalBusy += jsonInt(gw, "sqlite_busy_count")
+		}
+		if data.WALSustained.GoReader != nil {
+			gr := data.WALSustained.GoReader
+			totalOps += jsonInt(gr, "total_reads")
+			totalBusy += jsonInt(gr, "sqlite_busy_count")
+		}
+
+		var combinedPct float64
+		if totalOps > 0 {
+			combinedPct = float64(totalBusy) / float64(totalOps) * 100.0
+		}
+
+		verdicts = append(verdicts, Verdict{
+			Criterion: "Sustained — combined SQLITE_BUSY",
+			Threshold: fmt.Sprintf("≤ %.1f%%", th.MaxCombinedBusyPct),
+			Measured:  fmt.Sprintf("%.2f%% (%s busy of %s ops)", combinedPct, fmtNum(totalBusy), fmtNum(totalOps)),
+			Pass:      combinedPct <= th.MaxCombinedBusyPct,
+			Source:    "wal_sustained/c_writer.json, go_writer.json, go_reader.json",
 		})
 	}
 
@@ -677,6 +756,12 @@ func collectComplexitySignals(data *ReportData) []complexitySignal {
 	// 6. Stress amplification (stress p99 / clean p99 > 3) — need resource isolation
 	signals = append(signals, checkStressAmplification(data)...)
 
+	// 7. Write-write conflict — both C and Go writers hitting SQLITE_BUSY
+	signals = append(signals, checkWriteWriteConflict(data)...)
+
+	// 8. Sustained reader degradation — read p99/p50 in sustained test
+	signals = append(signals, checkSustainedReaderDegradation(data)...)
+
 	return signals
 }
 
@@ -963,6 +1048,66 @@ func checkStressAmplification(data *ReportData) []complexitySignal {
 			})
 		}
 	}
+
+	return signals
+}
+
+// checkWriteWriteConflict detects scenarios where both C and Go writers are
+// contending for SQLite write locks. Non-zero busy counts from BOTH writers
+// in the same sustained run is a strong signal that multi-process writes need
+// serialization through a concurrency wrapper.
+func checkWriteWriteConflict(data *ReportData) []complexitySignal {
+	var signals []complexitySignal
+
+	if data.WALSustained == nil || data.WALSustained.CWriter == nil || data.WALSustained.GoWriter == nil {
+		return signals
+	}
+
+	cBusy := jsonInt(data.WALSustained.CWriter, "sqlite_busy_count")
+	goBusy := jsonInt(data.WALSustained.GoWriter, "sqlite_busy_count")
+
+	bothBusy := cBusy > 0 && goBusy > 0
+
+	signals = append(signals, complexitySignal{
+		Signal:    "Write-write SQLITE_BUSY conflict (C writer + Go writer)",
+		Transport: "WAL",
+		Measured: fmt.Sprintf("c_writer busy=%s, go_writer busy=%s",
+			fmtNum(cBusy), fmtNum(goBusy)),
+		Source:      "wal_sustained/c_writer.json, wal_sustained/go_writer.json",
+		Implication: "Serialization wrapper, single-writer gateway, WAL2 evaluation",
+		Triggered:   bothBusy,
+	})
+
+	return signals
+}
+
+// checkSustainedReaderDegradation detects elevated read tail latency in
+// sustained WAL tests. A high p99/p50 read ratio means checkpoint contention
+// is stalling readers unpredictably — another signal for a wrapper.
+func checkSustainedReaderDegradation(data *ReportData) []complexitySignal {
+	var signals []complexitySignal
+
+	if data.WALSustained == nil || data.WALSustained.GoReader == nil {
+		return signals
+	}
+
+	gr := data.WALSustained.GoReader
+	p50 := jsonLatency(gr, "read_latency_us", "p50")
+	p99 := jsonLatency(gr, "read_latency_us", "p99")
+
+	var ratio float64
+	if p50 > 0 {
+		ratio = float64(p99) / float64(p50)
+	}
+
+	signals = append(signals, complexitySignal{
+		Signal:      "Sustained reader tail degradation (read p99/p50)",
+		Transport:   "WAL",
+		Measured:    fmt.Sprintf("%.1fx (p99=%s µs, p50=%s µs)", ratio, fmtNum(p99), fmtNum(p50)),
+		Source:      "wal_sustained/go_reader.json",
+		Implication: "Read-path serialization, checkpoint tuning, connection pooling",
+		Triggered:   ratio > 10.0,
+	})
 
 	return signals
 }

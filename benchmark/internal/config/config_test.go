@@ -98,6 +98,15 @@ func TestLoadDefaultConfig(t *testing.T) {
 	if cfg.Thresholds.WAL.MaxP99WriteLatencyUs != 50000 {
 		t.Errorf("WAL max p99 write = %d, want 50000", cfg.Thresholds.WAL.MaxP99WriteLatencyUs)
 	}
+	if cfg.Thresholds.Events.MaxOverflowEvents != 0 {
+		t.Errorf("Events max overflow = %d, want 0", cfg.Thresholds.Events.MaxOverflowEvents)
+	}
+	if cfg.Thresholds.Sustained.MaxP99ReadLatencyUs != 50000 {
+		t.Errorf("Sustained max p99 read = %d, want 50000", cfg.Thresholds.Sustained.MaxP99ReadLatencyUs)
+	}
+	if cfg.Thresholds.Sustained.MaxCombinedBusyPct != 5.0 {
+		t.Errorf("Sustained max combined busy = %f, want 5.0", cfg.Thresholds.Sustained.MaxCombinedBusyPct)
+	}
 }
 
 func TestValidationMissingSchema(t *testing.T) {

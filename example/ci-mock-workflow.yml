@@ -1,0 +1,149 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Mock CI Workflow — Demonstrates benchmark gating with pre-collected results
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# This file is NOT a live workflow (it's under example/, not .github/workflows/).
+# It shows how to integrate the benchmark gate into a real pipeline using the
+# example results checked into this repository.
+#
+# Three modes are demonstrated:
+#   1. Report-only gate   — evaluates pre-collected results, no target device
+#   2. Full pipeline      — builds, deploys, runs on ARM target, gates
+#   3. Security surface   — uses transport-count output to flag threat model gaps
+#
+# Copy the job you need into your own .github/workflows/ and adjust paths.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Integration Benchmark Gate (Mock)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# ── Shared defaults ────────────────────────────────────────────────────────
+env:
+  BENCH_CONFIG: bench.example.yaml
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────
+  # Mode 1: Report-only gate (no target device required)
+  #
+  # Use this when example or pre-collected results are checked into the repo.
+  # The action skips build/deploy/run and jumps straight to report generation.
+  # ────────────────────────────────────────────────────────────────────────
+  gate-prebuilt:
+    name: "Gate: Pre-collected results"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      # Build just the report tool (no cross-compiler needed)
+      - name: Build report tool
+        run: |
+          go build -o build/bench ./benchmark/bench
+
+      # Run the action against checked-in example results
+      - name: Benchmark gate
+        id: bench
+        uses: ./                         # uses the composite action at repo root
+        with:
+          results: example/results
+          config: ${{ env.BENCH_CONFIG }}
+          gate: 'true'
+          report-output: BENCHMARK-REPORT.md
+
+      # Show the verdict in the job summary
+      - name: Post verdict to summary
+        if: always()
+        run: |
+          echo "## Benchmark Verdict: ${{ steps.bench.outputs.verdict }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Transports detected:** ${{ steps.bench.outputs.transport-count }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Interfaces:** ${{ steps.bench.outputs.transports }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "<details><summary>Full report</summary>" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          cat BENCHMARK-REPORT.md >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "</details>" >> "$GITHUB_STEP_SUMMARY"
+
+  # ────────────────────────────────────────────────────────────────────────
+  # Mode 2: Full pipeline (build → deploy → run → collect → gate)
+  #
+  # Requires a self-hosted runner with SSH access to the ARM target.
+  # Set BENCH_TARGET_IP in repository secrets.
+  # ────────────────────────────────────────────────────────────────────────
+  gate-live:
+    name: "Gate: Live run on ARM target"
+    runs-on: self-hosted            # must reach the target device
+    if: github.event_name == 'push' # skip on PRs to avoid long runs
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Benchmark gate (full pipeline)
+        id: bench
+        uses: ./
+        with:
+          config: ${{ env.BENCH_CONFIG }}
+          target-ip: ${{ secrets.BENCH_TARGET_IP }}
+          duration: '30'
+          gate: 'true'
+
+      - name: Post verdict to summary
+        if: always()
+        run: |
+          echo "## Live Benchmark: ${{ steps.bench.outputs.verdict }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Transports: ${{ steps.bench.outputs.transports }}" >> "$GITHUB_STEP_SUMMARY"
+
+  # ────────────────────────────────────────────────────────────────────────
+  # Mode 3: Security surface check
+  #
+  # Uses the transport-count output to enforce that every detected IPC
+  # transport has been reviewed in the project's threat model. If a new
+  # transport appears (e.g., SHM added), this job flags it for review.
+  # ────────────────────────────────────────────────────────────────────────
+  threat-model-check:
+    name: "Check: Threat model coverage"
+    runs-on: ubuntu-latest
+    needs: gate-prebuilt
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Build report tool
+        run: go build -o build/bench ./benchmark/bench
+
+      # Run without gating — we only care about transport detection
+      - name: Detect transports
+        id: bench
+        uses: ./
+        with:
+          results: example/results
+          config: ${{ env.BENCH_CONFIG }}
+          gate: 'false'
+
+      # Compare detected count against the known-reviewed count.
+      # Update KNOWN_TRANSPORTS when you add a new transport to your
+      # threat model documentation.
+      - name: Verify threat model coverage
+        env:
+          KNOWN_TRANSPORTS: 3     # WAL + inotify + IPC (update when SHM is reviewed)
+        run: |
+          detected=${{ steps.bench.outputs.transport-count }}
+          echo "Detected transports: $detected"
+          echo "Known reviewed:      $KNOWN_TRANSPORTS"
+
+          if [ "$detected" -gt "$KNOWN_TRANSPORTS" ]; then
+            echo "::error::New transport interface detected ($detected > $KNOWN_TRANSPORTS). Update threat model before merging."
+            exit 1
+          fi
+          echo "✓ All detected transports have threat model coverage"
