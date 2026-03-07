@@ -43,6 +43,12 @@ outputs:
   verdict:
     description: '"pass" or "fail"'
     value: ${{ steps.report.outputs.verdict }}
+  transports:
+    description: 'Comma-separated list of detected transport interfaces (for threat model tracking)'
+    value: ${{ steps.report.outputs.transports }}
+  transport-count:
+    description: 'Number of detected transport interfaces requiring threat model coverage'
+    value: ${{ steps.report.outputs.transport-count }}
 
 runs:
   using: 'composite'
@@ -105,14 +111,27 @@ runs:
 
         echo "report-path=${{ inputs.report-output }}" >> "$GITHUB_OUTPUT"
 
-        # Run report generation
+        # Run report generation, capture stderr for transport detection
         set +e
+        stderr_log=$(mktemp)
         ./build/bench report "$results_dir" \
           $config_flag \
           --output "${{ inputs.report-output }}" \
-          $gate_flag
+          $gate_flag 2>"$stderr_log"
         exit_code=$?
+        cat "$stderr_log" >&2
         set -e
+
+        # Parse detected transports from stderr
+        transports=$(grep '\[bench\] Detected transport:' "$stderr_log" | sed 's/.*Detected transport: \(.*\) (.*/\1/' | paste -sd ',' -)
+        transport_count=$(grep -c '\[bench\] Detected transport:' "$stderr_log" || echo "0")
+        echo "transports=$transports" >> "$GITHUB_OUTPUT"
+        echo "transport-count=$transport_count" >> "$GITHUB_OUTPUT"
+        rm -f "$stderr_log"
+
+        if [ "$transport_count" -gt 0 ]; then
+          echo "::notice::$transport_count transport interface(s) detected — verify threat model coverage: $transports"
+        fi
 
         if [ $exit_code -eq 0 ]; then
           echo "verdict=pass" >> "$GITHUB_OUTPUT"

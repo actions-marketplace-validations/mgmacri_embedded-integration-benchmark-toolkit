@@ -119,6 +119,9 @@ func Generate(w io.Writer, data *ReportData, cfg *config.BenchConfig) error {
 	// === ARCHITECTURE GUIDANCE ===
 	writeArchitectureGuidance(w, data)
 
+	// === THREAT MODEL SURFACE ===
+	writeThreatModelSurface(w, data)
+
 	// === THRESHOLDS REFERENCE ===
 	writeThresholdsReference(w, cfg)
 
@@ -1007,6 +1010,104 @@ func writeArchitectureGuidance(w io.Writer, data *ReportData) {
 		"and deploy independently. The latency difference between transports is typically "+
 		"sub-millisecond — negligible for configuration changes that happen at most every "+
 		"100ms. Choose based on your coupling tolerance, not raw speed.\n\n")
+}
+
+// ---------- Threat Model Surface ----------
+
+// TransportSurface describes one detected transport and its threat model implications.
+type TransportSurface struct {
+	Transport    string // e.g., "SQLite WAL", "inotify", "Unix domain socket", "Shared memory (mmap)"
+	Interface    string // e.g., "Database file", "Filesystem watch", "AF_UNIX socket", "POSIX shm + FIFO"
+	AttackVector string // e.g., "File permission / symlink race"
+	Boundary     string // e.g., "Same-host, same-user" or "Same-host, cross-user if permissions allow"
+	DataFlow     string // e.g., "Writer → DB file → Reader"
+	Detected     bool   // true if benchmark data exists for this transport
+}
+
+// DetectedTransports returns the set of IPC transports found in the benchmark
+// data, along with their threat model surface area. Use this in CI to trigger
+// threat model reviews when new transports appear.
+func DetectedTransports(data *ReportData) []TransportSurface {
+	surfaces := []TransportSurface{
+		{
+			Transport:    "SQLite WAL",
+			Interface:    "Database file (*.db, *.db-wal, *.db-shm)",
+			AttackVector: "File permission misconfiguration; symlink race on DB path; WAL file corruption via partial write",
+			Boundary:     "Same-host process boundary; controlled by filesystem DAC",
+			DataFlow:     "C writer → SQLite DB → Go reader",
+			Detected:     len(data.WALClean) > 0 || len(data.WALStress) > 0 || data.WALSustained != nil,
+		},
+		{
+			Transport:    "inotify sentinel file",
+			Interface:    "Filesystem watch (IN_CLOSE_WRITE on config directory)",
+			AttackVector: "Uncontrolled file creation in watched directory; notification flood (DoS); TOCTOU between notify and read",
+			Boundary:     "Same-host; any process with write access to the watched directory",
+			DataFlow:     "Go writer → atomic rename → inotify → C watcher → file read",
+			Detected:     len(data.InotifyClean) > 0 || len(data.InotifyStress) > 0,
+		},
+		{
+			Transport:    "Unix domain socket",
+			Interface:    "AF_UNIX stream socket (filesystem-bound)",
+			AttackVector: "Socket path permission; unauthorized connection; message injection; FD exhaustion",
+			Boundary:     "Same-host; controlled by socket file DAC and SO_PEERCRED",
+			DataFlow:     "Go client → Unix socket → C server",
+			Detected:     len(data.IPCClean) > 0 || len(data.IPCStress) > 0,
+		},
+		{
+			Transport:    "Shared memory (mmap + FIFO)",
+			Interface:    "POSIX shared memory segment (/dev/shm) + named FIFO",
+			AttackVector: "shm segment permission; struct layout mismatch (memory corruption); FIFO path hijack; no built-in authentication",
+			Boundary:     "Same-host; controlled by shm_open mode bits and FIFO DAC",
+			DataFlow:     "Go writer → mmap'd struct → memory barrier → FIFO signal → C reader",
+			Detected:     len(data.SHMClean) > 0 || len(data.SHMStress) > 0,
+		},
+	}
+
+	return surfaces
+}
+
+func writeThreatModelSurface(w io.Writer, data *ReportData) {
+	surfaces := DetectedTransports(data)
+
+	// Only show if at least one transport is detected
+	detected := 0
+	for _, s := range surfaces {
+		if s.Detected {
+			detected++
+		}
+	}
+	if detected == 0 {
+		return
+	}
+
+	fmt.Fprintf(w, "## Threat Model Surface Area\n\n")
+	fmt.Fprintf(w, "Each transport mechanism measured above introduces an inter-process "+
+		"interface that must appear in your system's threat model. The table below maps "+
+		"detected transports to their attack surface — use it as input to STRIDE analysis "+
+		"or equivalent.\n\n")
+
+	fmt.Fprintf(w, "**%d transport interface(s) detected** — each requires a threat model entry.\n\n", detected)
+
+	fmt.Fprintf(w, "| Transport | Interface | Trust Boundary | Attack Vector | Data Flow |\n")
+	fmt.Fprintf(w, "|-----------|-----------|----------------|---------------|----------|\n")
+
+	for _, s := range surfaces {
+		if s.Detected {
+			fmt.Fprintf(w, "| **%s** | %s | %s | %s | %s |\n",
+				s.Transport, s.Interface, s.Boundary, s.AttackVector, s.DataFlow)
+		}
+	}
+
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "**Action required:** For each detected transport, verify that:\n\n")
+	fmt.Fprintf(w, "1. File/socket/shm permissions follow least-privilege (no world-readable IPC channels)\n")
+	fmt.Fprintf(w, "2. The trust boundary is documented in your architecture diagram\n")
+	fmt.Fprintf(w, "3. Input validation exists at each receiver (malformed data, unexpected size, tampered fields)\n")
+	fmt.Fprintf(w, "4. Denial-of-service mitigations exist (connection limits, queue depth bounds, timeout on blocked reads)\n\n")
+
+	fmt.Fprintf(w, "*This section is auto-generated from detected benchmark data. "+
+		"When a new transport appears in your results, it signals a new interface "+
+		"that requires security review.*\n\n")
 }
 
 func writeThresholdsReference(w io.Writer, cfg *config.BenchConfig) {

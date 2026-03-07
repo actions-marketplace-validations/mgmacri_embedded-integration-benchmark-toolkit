@@ -362,3 +362,88 @@ func TestComplexityScorecard_NoData(t *testing.T) {
 		t.Errorf("expected no output for empty data, got %d bytes", buf.Len())
 	}
 }
+
+func TestDetectedTransports(t *testing.T) {
+	data, err := LoadResults("../../../example/results")
+	if err != nil {
+		t.Fatalf("LoadResults: %v", err)
+	}
+
+	surfaces := DetectedTransports(data)
+
+	// Must return all 4 transport types
+	if len(surfaces) != 4 {
+		t.Fatalf("expected 4 transport surfaces, got %d", len(surfaces))
+	}
+
+	// Example results have WAL and inotify and IPC data, but no SHM
+	detectedNames := make(map[string]bool)
+	for _, s := range surfaces {
+		if s.Detected {
+			detectedNames[s.Transport] = true
+		}
+		// Every surface must have non-empty fields
+		if s.Interface == "" {
+			t.Errorf("transport %q has empty Interface", s.Transport)
+		}
+		if s.AttackVector == "" {
+			t.Errorf("transport %q has empty AttackVector", s.Transport)
+		}
+		if s.Boundary == "" {
+			t.Errorf("transport %q has empty Boundary", s.Transport)
+		}
+		if s.DataFlow == "" {
+			t.Errorf("transport %q has empty DataFlow", s.Transport)
+		}
+	}
+
+	// At minimum, WAL and inotify should be detected from example data
+	for _, expected := range []string{"SQLite WAL", "inotify sentinel file"} {
+		if !detectedNames[expected] {
+			t.Errorf("expected transport %q to be detected", expected)
+		}
+	}
+}
+
+func TestThreatModelSurface_InReport(t *testing.T) {
+	data, err := LoadResults("../../../example/results")
+	if err != nil {
+		t.Fatalf("LoadResults: %v", err)
+	}
+
+	cfg := config.Default()
+
+	var buf bytes.Buffer
+	if err := Generate(&buf, data, cfg); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+
+	report := buf.String()
+
+	if !strings.Contains(report, "Threat Model Surface Area") {
+		t.Error("missing threat model section in report")
+	}
+
+	if !strings.Contains(report, "Trust Boundary") {
+		t.Error("missing trust boundary column in threat model table")
+	}
+
+	if !strings.Contains(report, "Attack Vector") {
+		t.Error("missing attack vector column in threat model table")
+	}
+
+	if !strings.Contains(report, "transport interface(s) detected") {
+		t.Error("missing transport count summary")
+	}
+}
+
+func TestThreatModelSurface_NoData(t *testing.T) {
+	data := &ReportData{}
+
+	var buf bytes.Buffer
+	writeThreatModelSurface(&buf, data)
+
+	if buf.Len() != 0 {
+		t.Errorf("expected no output for empty data, got %d bytes", buf.Len())
+	}
+}

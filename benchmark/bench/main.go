@@ -336,6 +336,19 @@ func cmdReport(args []string) {
 		fmt.Fprintf(os.Stderr, "[bench] Report written to %s\n", outputFile)
 	}
 
+	// Always log detected transports (useful for CI parsing)
+	surfaces := report.DetectedTransports(data)
+	detected := 0
+	for _, s := range surfaces {
+		if s.Detected {
+			detected++
+			fmt.Fprintf(os.Stderr, "[bench] Detected transport: %s (%s)\n", s.Transport, s.Interface)
+		}
+	}
+	if detected > 0 {
+		fmt.Fprintf(os.Stderr, "[bench] %d transport interface(s) require threat model coverage\n", detected)
+	}
+
 	// CI gating: exit non-zero if any verdict fails
 	if gate {
 		verdicts := report.Evaluate(data, cfg)

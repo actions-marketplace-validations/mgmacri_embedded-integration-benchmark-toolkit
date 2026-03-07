@@ -4,8 +4,13 @@ This document covers two ways to integrate the benchmark toolkit into your
 CI pipeline: as a **reusable GitHub Action** or as a **Docker-based step**
 for any CI system.
 
-Both approaches use the same `bench report --gate` command, which exits
-non-zero when any measured value exceeds your configured thresholds.
+The toolkit serves two CI purposes:
+
+1. **Performance gating** — `bench report --gate` exits non-zero when any
+   measured value exceeds your configured thresholds.
+2. **Threat model triggering** — the report detects which IPC transports
+   your system uses and maps each to its attack surface. When a new transport
+   appears, your pipeline can flag it for security review.
 
 ---
 
@@ -55,6 +60,8 @@ generates the report, and gates on your thresholds.
 |--------|-------------|
 | `verdict` | `pass` or `fail` |
 | `report-path` | Path to the generated report file |
+| `transports` | Comma-separated list of detected IPC transports |
+| `transport-count` | Number of transports requiring threat model coverage |
 
 The report is automatically uploaded as a workflow artifact.
 
@@ -184,6 +191,62 @@ jobs:
           config: bench.yaml
           gate: 'true'
 ```
+
+### Threat model review trigger
+
+When your project adds a new IPC transport (e.g., switching from inotify
+to Unix sockets), the report automatically detects it. Use the `transports`
+and `transport-count` outputs to trigger a security review.
+
+Each transport is a new **interface** in your system's threat model — it
+has a trust boundary, attack surface, and data flow that need STRIDE
+analysis (or equivalent).
+
+```yaml
+on: pull_request
+jobs:
+  architecture-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run benchmark analysis
+        id: bench
+        uses: mgmacri/ipc-you-might-not-need@v1
+        with:
+          results: results/baseline/
+          config: bench.yaml
+          gate: 'false'    # don't fail on perf — just detect transports
+
+      - name: Check for new interfaces
+        run: |
+          echo "Detected transports: ${{ steps.bench.outputs.transports }}"
+          echo "Count: ${{ steps.bench.outputs.transport-count }}"
+
+          # Compare against known-reviewed transports
+          # If count increases, flag for threat model update
+          KNOWN_COUNT=2  # update this when threat model is reviewed
+          ACTUAL=${{ steps.bench.outputs.transport-count }}
+          if [ "$ACTUAL" -gt "$KNOWN_COUNT" ]; then
+            echo "::error::New transport interface detected — threat model review required"
+            echo "Review the 'Threat Model Surface Area' section in the benchmark report"
+            exit 1
+          fi
+```
+
+The generated report includes a **Threat Model Surface Area** section that
+maps each detected transport to:
+
+| Column | What it tells you |
+|--------|-------------------|
+| **Interface** | What the IPC mechanism actually is (socket, file, shm segment) |
+| **Trust Boundary** | Who can access it (same-user, same-host, DAC-controlled) |
+| **Attack Vector** | Known attack patterns (symlink race, injection, FD exhaustion) |
+| **Data Flow** | Direction and participants (writer → medium → reader) |
+
+This table is designed as direct input to STRIDE analysis. When a new row
+appears, it means your system has a new interface that doesn't yet exist
+in your threat model.
 
 ### Nightly benchmark with artifact collection
 
