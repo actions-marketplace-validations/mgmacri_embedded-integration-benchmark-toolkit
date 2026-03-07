@@ -40,6 +40,7 @@ schema has constraints, triggers, or access patterns the introspector cannot inf
 
 ## Quick Start: GitHub Action
 
+Available on the [GitHub Marketplace](https://github.com/marketplace/actions/ipc-benchmark-gate).
 Add the toolkit as a step in any workflow. The action builds the toolkit,
 generates the report, and gates on your thresholds.
 
