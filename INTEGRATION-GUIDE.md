@@ -134,6 +134,8 @@ Additional complexity:
 | **Bidirectional** | No (add 2nd directory) | Yes | Yes |
 | **Guaranteed delivery** | No (file overwrite) | Yes (TCP-like) | Yes |
 | **Determinism** | Good (<1ms) | Better (<100µs) | Best (tunable) |
+| **Attack surface** | Directory permissions + file format (likely already in filesystem threat model) | Socket path + protocol + FD lifecycle (new interface) | Framework-dependent (often large, multiple new interfaces) |
+| **Threat model entries** | ~0 incremental (filesystem overlap) | 1+ (new socket interface) | N (one per endpoint/bus) |
 
 ### When WAL + inotify Is Enough (Most Embedded Projects)
 
@@ -155,6 +157,13 @@ Your project needs explicit IPC if:
 - ❌ Cannot tolerate any missed events
 - ❌ Need flow control or backpressure
 
+> **Security cost:** Moving to sockets adds a new IPC interface — a trust
+> boundary that didn't exist when you were using inotify. That interface
+> needs a threat model entry (attack vectors, data flows, mitigations)
+> before it ships. The toolkit's [CI integration](CI-INTEGRATION.md)
+> detects this automatically: when `transport-count` increases, it flags
+> the change for security review. See [Throughput Guide §Security Cost](THROUGHPUT-GUIDE.md#the-security-cost-of-graduation).
+
 ### When You Need a Full IPC Framework (D-Bus, gRPC, etc.)
 
 Consider a framework if:
@@ -162,6 +171,12 @@ Consider a framework if:
 - ❌ Need service discovery
 - ❌ Need structured RPC with schema evolution
 - ❌ Team already uses the framework elsewhere
+
+> **Security cost:** A full IPC framework typically introduces multiple
+> interfaces (service bus, RPC endpoints, discovery mechanism). Each is
+> a separate trust boundary in your threat model. The engineering cost
+> in the table below reflects implementation — the security review cost
+> is additional and scales with the number of interfaces added.
 
 ---
 

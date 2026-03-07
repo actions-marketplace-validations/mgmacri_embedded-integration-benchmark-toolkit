@@ -12,6 +12,20 @@ The toolkit serves two CI purposes:
    your system uses and maps each to its attack surface. When a new transport
    appears, your pipeline can flag it for security review.
 
+**These two purposes are connected by design.** The intended workflow is:
+
+1. Benchmark data reveals that your current transport (e.g., inotify) can't
+   meet a latency or reliability threshold on a hot path.
+2. Your team upgrades to a tighter-coupled transport (sockets, shared memory)
+   to meet the requirement.
+3. The CI pipeline detects the new transport interface and flags it.
+4. Your team designs a threat model entry for the new interface — trust
+   boundary, attack vectors, data flows, mitigations — before the change ships.
+
+**The benchmark is the canary signal. The CI gate is the tripwire. The threat
+model is the required response.** The goal is to ensure that no IPC interface
+reaches production without a security design review.
+
 ---
 
 ## What You Provide

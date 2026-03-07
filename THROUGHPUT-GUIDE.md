@@ -12,6 +12,19 @@ transport.
 critical path, start here.** The throughput buckets below tell you which
 transport gives you deterministic behavior at your rate.
 
+> **Security implication of every transport upgrade:** Each step up this
+> spectrum — from inotify to sockets to shared memory — adds IPC interfaces
+> with progressively larger attack surfaces. inotify's security surface
+> (directory permissions, file format) largely overlaps with your existing
+> filesystem threat model. Sockets and shared memory introduce **new**
+> trust boundaries that don't exist in a filesystem-only architecture.
+> The benchmark data tells you *when* you're forced to graduate. The
+> [CI integration](CI-INTEGRATION.md) detects *that* you graduated and
+> flags it for security review. This is by design — the toolkit acts as
+> a **security canary**: when a threshold is exceeded, the transport
+> upgrade it triggers is your signal to circle back and build a threat
+> model for the new interface.
+
 ---
 
 ## The Throughput Spectrum
@@ -74,7 +87,10 @@ Hot loop ──reads file──→ apply config (< 1 ms overhead)
 ```
 
 **Recommendation:** Use inotify. The complexity savings are significant and the
-latency is well within budget.
+latency is well within budget. inotify's attack surface — directory permissions,
+file format convention — overlaps with your existing filesystem threat model,
+so the incremental security review cost is minimal compared to adding a new
+socket or shared memory interface.
 
 ---
 
@@ -185,6 +201,13 @@ Hot loop: if (data available) { parse + apply } else { continue }
 lifecycle, reconnection, framing) is justified by guaranteed delivery and 2–3x
 lower latency.
 
+> **Threat model trigger:** Moving from inotify to sockets adds a Unix domain
+> socket interface — a new trust boundary with its own attack surface (symlink
+> races, FD exhaustion, message injection). When the CI pipeline detects this
+> new transport, it flags the change for security review. Design a threat
+> model entry for the socket interface before shipping. See
+> [CI-INTEGRATION.md](CI-INTEGRATION.md#threat-model-review-trigger).
+
 ---
 
 ## Bucket 4: > 1,000 notifications/sec — Use shared memory
@@ -230,6 +253,14 @@ Hot loop: memcpy local copy → parse + apply (zero-copy read)
 **Recommendation:** Use shared memory only when you've measured that socket
 latency is insufficient. The ARM memory ordering complexity is a real source
 of subtle bugs. Benchmark first, then decide.
+
+> **Threat model trigger:** Shared memory adds the largest interface surface
+> of any transport in this toolkit — byte-level struct coupling, memory
+> ordering assumptions, and a signaling path with no kernel-mediated access
+> control beyond segment permissions. A compromised writer can inject
+> arbitrary data that the reader trusts implicitly. This interface
+> **requires** a dedicated threat model entry with STRIDE analysis before
+> shipping. See [CI-INTEGRATION.md](CI-INTEGRATION.md#threat-model-review-trigger).
 
 ---
 
@@ -356,3 +387,26 @@ All latency values are from a Cortex-A7 (STM32MP157) on tmpfs. Your hardware
 will differ — run the benchmarks on your target and fill in your own numbers.
 The bucket boundaries shift with CPU speed, but the relative ordering and
 the failure modes remain the same.
+
+---
+
+## The Security Cost of Graduation
+
+Every row in the table above is also a row in your threat model. The toolkit's
+CI integration is designed around this principle:
+
+1. **Benchmark data shows your current transport can't meet latency requirements**
+   — inotify p99 exceeds your threshold, or missed events appear under load.
+2. **You're forced to adopt a tighter-coupled transport** — sockets or shared memory.
+3. **The CI pipeline detects the new transport** via the `transport-count` output
+   and flags it for review.
+4. **Your team designs a threat model entry** for the new interface — trust boundary,
+   attack vectors, data flows, mitigations — before the change ships.
+
+This is the core workflow the toolkit enables: **the benchmark is the canary, the
+CI gate is the tripwire, and the threat model is the required response.** The goal
+is never to have an IPC interface in production that hasn't been through a
+security design review.
+
+See [CI-INTEGRATION.md](CI-INTEGRATION.md) for the GitHub Action configuration
+that implements this workflow.

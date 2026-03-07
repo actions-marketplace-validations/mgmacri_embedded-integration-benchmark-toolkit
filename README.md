@@ -16,6 +16,11 @@ processes need to talk. This toolkit lets you **measure the alternatives first**
 on your actual target hardware, so the architecture decision is driven by data
 instead of assumptions.
 
+**Every IPC interface is a trust boundary.** When benchmark data proves you need
+a faster transport, the [CI integration](CI-INTEGRATION.md) detects the new
+interface and flags it for security review — ensuring no IPC mechanism reaches
+production without a threat model.
+
 Four integration patterns, tested head-to-head:
 
 | # | Pattern | What It Proves |
