@@ -23,7 +23,7 @@ generates the report, and gates on your thresholds.
 
 ```yaml
 - name: Benchmark gate
-  uses: mgmacri/ipc-you-might-not-need@v1
+  uses: mgmacri/embedded-integration-benchmark-toolkit@v1
   with:
     results: path/to/results/
     config: bench.yaml
@@ -34,7 +34,7 @@ generates the report, and gates on your thresholds.
 
 ```yaml
 - name: Run benchmarks and gate
-  uses: mgmacri/ipc-you-might-not-need@v1
+  uses: mgmacri/embedded-integration-benchmark-toolkit@v1
   with:
     config: bench.yaml
     target-ip: ${{ secrets.BENCH_TARGET_IP }}
@@ -185,7 +185,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: mgmacri/ipc-you-might-not-need@v1
+      - uses: mgmacri/embedded-integration-benchmark-toolkit@v1
         with:
           results: results/baseline/
           config: bench.yaml
@@ -212,7 +212,7 @@ jobs:
 
       - name: Run benchmark analysis
         id: bench
-        uses: mgmacri/ipc-you-might-not-need@v1
+        uses: mgmacri/embedded-integration-benchmark-toolkit@v1
         with:
           results: results/baseline/
           config: bench.yaml
@@ -262,7 +262,7 @@ jobs:
     runs-on: [self-hosted, arm]
     steps:
       - uses: actions/checkout@v4
-      - uses: mgmacri/ipc-you-might-not-need@v1
+      - uses: mgmacri/embedded-integration-benchmark-toolkit@v1
         with:
           config: bench.yaml
           target-ip: 192.168.1.100
