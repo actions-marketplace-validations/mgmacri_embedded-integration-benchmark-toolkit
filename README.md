@@ -1,4 +1,4 @@
-# IPC You Might Not Need
+# Embedded Integration Benchmark Toolkit
 
 **Empirical benchmarks that measure whether your embedded Linux system actually
 needs an IPC layer — or if simpler patterns already work.**
