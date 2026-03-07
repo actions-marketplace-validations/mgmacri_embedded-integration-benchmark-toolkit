@@ -121,7 +121,7 @@ jobs:
         run: docker build -t bench-build:scan .
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: bench-build:scan
           format: table
