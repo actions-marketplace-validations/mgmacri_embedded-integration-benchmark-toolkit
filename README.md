@@ -3,6 +3,7 @@
 **Empirical benchmarks that measure whether your embedded Linux system actually
 needs an IPC layer — or if simpler patterns already work.**
 
+[![CI](https://github.com/mgmacri/embedded-integration-benchmark-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/mgmacri/embedded-integration-benchmark-toolkit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go 1.25](https://img.shields.io/badge/Go-1.25-00ADD8.svg)](https://go.dev/)
 [![ARM Linux](https://img.shields.io/badge/Target-ARM%20Linux%20(armv7l)-orange.svg)]()
