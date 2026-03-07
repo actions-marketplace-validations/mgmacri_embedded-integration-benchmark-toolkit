@@ -1,0 +1,9 @@
+flowchart LR
+    IW["Go Writer"] -->|atomic rename| WD["/watch_dir/ subsystem_name"]
+    WD -->|"inotify IN_MOVED_TO"| CWA["C Watcher"]
+    CWA -->|reads file| IP["parse payload, apply config"]
+
+    style IW fill:#2d2d44,stroke:#4caf50,color:#e0e0e0
+    style WD fill:#2d2d44,stroke:#4caf50,color:#e0e0e0
+    style CWA fill:#2d2d44,stroke:#4caf50,color:#e0e0e0
+    style IP fill:#2d2d44,stroke:#4caf50,color:#e0e0e0

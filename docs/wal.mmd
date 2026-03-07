@@ -1,0 +1,11 @@
+flowchart LR
+    CW["C Writer (firmware)"] -->|writes| DB[("SQLite WAL DB")]
+    GW["Go Writer (config)"] -->|writes| DB
+    DB -->|reads| GR["Go Reader (web svc)"]
+    NOTE["Varies: journal mode, write rate, reader count"]
+
+    style CW fill:#2d2d44,stroke:#00ADD8,color:#e0e0e0
+    style GW fill:#2d2d44,stroke:#00ADD8,color:#e0e0e0
+    style DB fill:#2d2d44,stroke:#00ADD8,color:#e0e0e0
+    style GR fill:#2d2d44,stroke:#00ADD8,color:#e0e0e0
+    style NOTE fill:none,stroke:none,color:#888

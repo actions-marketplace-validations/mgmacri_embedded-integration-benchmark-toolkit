@@ -125,53 +125,25 @@ detailed latency tables and architecture guidance.
 Four benchmarks share identical payloads, config parsing, and measurement methodology
 so latency differences reflect **only** the transport mechanism.
 
-```
-┌──────────────────────────────────────────────────────────┐
-│  WAL: Can multiple processes share one SQLite DB?        │
-│                                                          │
-│  C Writer ──writes──→ ┌──────────┐ ←──reads── Go Reader │
-│  (firmware)           │  SQLite   │           (web svc)  │
-│  Go Writer ──writes─→ │  WAL DB   │                      │
-│  (config)             └──────────┘                       │
-│                                                          │
-│  Varies: journal mode, write rate, reader count          │
-└──────────────────────────────────────────────────────────┘
+### WAL: Can multiple processes share one SQLite DB?
 
-┌──────────────────────────────────────────────────────────┐
-│  inotify: File-based config notification                 │
-│                                                          │
-│  Go Writer ──atomic rename──→ /watch_dir/subsystem_name  │
-│                       inotify IN_MOVED_TO ↓              │
-│  C Watcher ──reads file──→ parse payload, apply config   │
-└──────────────────────────────────────────────────────────┘
+![SQLite WAL access pattern](docs/sqlite_wal_access.png)
 
-┌──────────────────────────────────────────────────────────┐
-│  IPC: Socket-based notification (comparison baseline)    │
-│                                                          │
-│  Go Client ──socket write──→ Unix Domain Socket          │
-│                                        ↓                 │
-│  C Server ──reads message──→ same parse, same config     │
-└──────────────────────────────────────────────────────────┘
+### inotify: File-based config notification
 
-┌──────────────────────────────────────────────────────────┐
-│  SHM: mmap + FIFO (latency floor)                       │
-│                                                          │
-│  Go Writer ──mmap write──→ /dev/shm/bench_shm           │
-│                      FIFO signal ↓                       │
-│  C Reader ──mmap read──→ same parse, same config         │
-│            (acquire barrier on ARMv7)                    │
-└──────────────────────────────────────────────────────────┘
+![inotify config watch flow](docs/inotify_config_watch.png)
 
-┌──────────────────────────────────────────────────────────┐
-│  inotify Reliability: 5 failure-mode stress tests        │
-│                                                          │
-│  • Queue overflow (IN_Q_OVERFLOW)                        │
-│  • I/O storm during monitoring                           │
-│  • Rapid overwrite (kernel event coalescing)             │
-│  • fsync race (no fsync before rename)                   │
-│  • tmpfs vs block filesystem latency delta               │
-└──────────────────────────────────────────────────────────┘
-```
+### IPC: Socket-based notification (comparison baseline)
+
+![Unix domain socket IPC](docs/go_c_unix_socket.png)
+
+### SHM: mmap + FIFO (latency floor)
+
+![Shared memory IPC between Go and C](docs/shm_ipc_go_c.png)
+
+### inotify Reliability: 5 failure-mode stress tests
+
+![Filesystem event loss causes](docs/fs_event_loss_causes.png)
 
 All benchmark paths run on **tmpfs** (`/tmp`). No writes hit flash storage.
 

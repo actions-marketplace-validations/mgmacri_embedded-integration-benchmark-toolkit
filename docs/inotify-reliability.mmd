@@ -1,0 +1,12 @@
+flowchart TB
+    R1["Queue overflow (IN_Q_OVERFLOW)"]
+    R2["I/O storm during monitoring"]
+    R3["Rapid overwrite (kernel event coalescing)"]
+    R4["fsync race (no fsync before rename)"]
+    R5["tmpfs vs block filesystem latency delta"]
+
+    style R1 fill:#2d2d44,stroke:#9c27b0,color:#e0e0e0
+    style R2 fill:#2d2d44,stroke:#9c27b0,color:#e0e0e0
+    style R3 fill:#2d2d44,stroke:#9c27b0,color:#e0e0e0
+    style R4 fill:#2d2d44,stroke:#9c27b0,color:#e0e0e0
+    style R5 fill:#2d2d44,stroke:#9c27b0,color:#e0e0e0

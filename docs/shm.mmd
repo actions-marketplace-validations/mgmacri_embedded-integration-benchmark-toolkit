@@ -1,0 +1,12 @@
+flowchart LR
+    SW["Go Writer"] -->|mmap write| SM["/dev/shm/ bench_shm"]
+    SW -->|FIFO signal| CR["C Reader"]
+    SM -->|mmap read| CR
+    CR --> SP["same parse, same config"]
+    NOTE["acquire barrier on ARMv7"]
+
+    style SW fill:#2d2d44,stroke:#e91e63,color:#e0e0e0
+    style SM fill:#2d2d44,stroke:#e91e63,color:#e0e0e0
+    style CR fill:#2d2d44,stroke:#e91e63,color:#e0e0e0
+    style SP fill:#2d2d44,stroke:#e91e63,color:#e0e0e0
+    style NOTE fill:none,stroke:none,color:#888

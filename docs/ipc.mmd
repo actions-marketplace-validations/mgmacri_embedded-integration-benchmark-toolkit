@@ -1,0 +1,9 @@
+flowchart LR
+    GC["Go Client"] -->|socket write| UDS["Unix Domain Socket"]
+    UDS --> CS["C Server"]
+    CS -->|reads message| IP2["same parse, same config"]
+
+    style GC fill:#2d2d44,stroke:#ff9800,color:#e0e0e0
+    style UDS fill:#2d2d44,stroke:#ff9800,color:#e0e0e0
+    style CS fill:#2d2d44,stroke:#ff9800,color:#e0e0e0
+    style IP2 fill:#2d2d44,stroke:#ff9800,color:#e0e0e0
