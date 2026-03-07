@@ -14,6 +14,30 @@ The toolkit serves two CI purposes:
 
 ---
 
+## What You Provide
+
+The toolkit needs two files from your project — structure only, no production data:
+
+1. **`schema.sql`** — Your `CREATE TABLE` statements. The toolkit introspects
+   column names and types to auto-generate INSERT/SELECT queries and deterministic
+   test data (seed 42). No real data is used. Strip any sensitive column names or
+   proprietary table names if needed — only the column types and count matter for
+   realistic contention measurement.
+
+2. **`bench.yaml`** — Your config subsystems (field names, types, value ranges)
+   and pass/fail thresholds. See [`bench.example.yaml`](bench.example.yaml) for
+   all options or [`bench.minimal.yaml`](bench.minimal.yaml) for a starting point.
+
+You can optionally override the auto-generated SQL with explicit query templates
+in `bench.yaml` (see the `queries:` section in `bench.example.yaml`) when your
+schema has constraints, triggers, or access patterns the introspector cannot infer.
+
+> **You do not provide real data, credentials, or application logic.** The benchmarks
+> exercise the *access patterns* your schema implies — column count, row size, index
+> pressure — not your business logic.
+
+---
+
 ## Quick Start: GitHub Action
 
 Add the toolkit as a step in any workflow. The action builds the toolkit,
