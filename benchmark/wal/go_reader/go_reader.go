@@ -27,9 +27,9 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/mgmacri/ipc-you-might-not-need/benchmark/internal/runtime"
 	"github.com/mgmacri/ipc-you-might-not-need/benchmark/internal/stats"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 type Result struct {
