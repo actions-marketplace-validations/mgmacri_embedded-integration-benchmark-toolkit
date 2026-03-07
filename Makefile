@@ -115,25 +115,25 @@ GO_INTERNAL = benchmark/internal/stats/stats.go \
               benchmark/internal/report/report.go
 
 $(GO_READER): $(WAL_DIR)/go_reader/go_reader.go $(GO_INTERNAL)
-	CGO_ENABLED=1 go build -o $@ ./$(WAL_DIR)/go_reader
+	CGO_ENABLED=1 go build -buildvcs=false -o $@ ./$(WAL_DIR)/go_reader
 
 $(GO_WRITER): $(WAL_DIR)/go_writer/go_writer.go $(GO_INTERNAL)
-	CGO_ENABLED=1 go build -o $@ ./$(WAL_DIR)/go_writer
+	CGO_ENABLED=1 go build -buildvcs=false -o $@ ./$(WAL_DIR)/go_writer
 
 $(SENTINEL_WRITER): $(INO_DIR)/writer/writer.go $(GO_INTERNAL)
-	CGO_ENABLED=0 go build -o $@ ./$(INO_DIR)/writer
+	CGO_ENABLED=0 go build -buildvcs=false -o $@ ./$(INO_DIR)/writer
 
 $(IPC_CLIENT): $(IPC_DIR)/client/client.go $(GO_INTERNAL)
-	CGO_ENABLED=0 go build -o $@ ./$(IPC_DIR)/client
+	CGO_ENABLED=0 go build -buildvcs=false -o $@ ./$(IPC_DIR)/client
 
 $(SHM_WRITER): $(SHM_DIR)/writer/writer.go $(GO_INTERNAL)
-	CGO_ENABLED=0 go build -o $@ ./$(SHM_DIR)/writer
+	CGO_ENABLED=0 go build -buildvcs=false -o $@ ./$(SHM_DIR)/writer
 
 $(REPORT_GEN): $(REPORT_DIR)/cmd/generate_report.go
-	CGO_ENABLED=0 go build -o $@ ./$(REPORT_DIR)/cmd
+	CGO_ENABLED=0 go build -buildvcs=false -o $@ ./$(REPORT_DIR)/cmd
 
 $(BENCH_CLI): benchmark/bench/main.go $(GO_INTERNAL)
-	CGO_ENABLED=0 go build -o $@ ./benchmark/bench
+	CGO_ENABLED=0 go build -buildvcs=false -o $@ ./benchmark/bench
 
 # --- Deployment ---
 
