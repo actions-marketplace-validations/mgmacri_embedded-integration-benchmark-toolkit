@@ -9,3 +9,13 @@
 # Format: one CVE ID per line. Lines starting with # are comments.
 # See: https://aquasecurity.github.io/trivy/latest/docs/configuration/filtering/#by-finding-ids
 
+# zlib1g — integer overflow in zipOpenNewFileInZip4_64.
+# Affects minizip's zip-creation API, which this container does not use.
+# Debian marks will_not_fix (minizip component, not core zlib decompression).
+CVE-2023-45853
+
+# linux-libc-dev — kernel GEM memory exhaustion (2013).
+# Build container only uses kernel headers for cross-compilation; no GEM
+# graphics subsystem is loaded or exercised. Debian marks will_not_fix.
+CVE-2013-7445
+
