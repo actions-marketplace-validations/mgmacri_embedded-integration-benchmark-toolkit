@@ -4,7 +4,7 @@
 needs an IPC layer — or if simpler patterns already work.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Go 1.22](https://img.shields.io/badge/Go-1.22-00ADD8.svg)](https://go.dev/)
+[![Go 1.25](https://img.shields.io/badge/Go-1.25-00ADD8.svg)](https://go.dev/)
 [![ARM Linux](https://img.shields.io/badge/Target-ARM%20Linux%20(armv7l)-orange.svg)]()
 
 ---
@@ -330,7 +330,7 @@ CI pipeline gate — reusable GitHub Action, Docker-based steps, and
 ## Requirements
 
 **Build host:**
-- Docker, **or** GCC cross-compiler (`arm-linux-gnueabihf-gcc`) + Go 1.22+
+- Docker, **or** GCC cross-compiler (`arm-linux-gnueabihf-gcc`) + Go 1.25+
 
 **Target:**
 - Any Linux system — kernel 2.6.13+ (inotify), tmpfs available
